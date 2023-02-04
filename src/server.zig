@@ -7,11 +7,11 @@ const os = std.os;
 const debug = std.log.debug;
 
 pub const Server = struct {
-    stream: std.net.StreamServer,
+    stream: net.StreamServer,
     address: net.Address,
     ally: std.mem.Allocator,
-    should_die: std.atomic.Atomic(bool) = std.atomic.Atomic(bool).init(false),
-    has_died: std.Thread.ResetEvent = std.Thread.ResetEvent{},
+    should_die: atomic.Atomic(bool) = atomic.Atomic(bool).init(false),
+    has_died: Thread.ResetEvent = Thread.ResetEvent{},
 
     pub fn init(addr: []const u8, port: u16, ally: std.mem.Allocator) !Server {
         const addresses = try net.getAddressList(ally, addr, port);
@@ -31,12 +31,11 @@ pub const Server = struct {
         debug("Quit reading", .{});
         self.should_die.store(true, .Release);
         debug("Sending dummy client", .{});
-        var dummy = std.net.tcpConnectToAddress(self.stream.listen_address) catch {
-            debug("whoops", .{});
-            return;
-        };
-        debug("Closing dummy", .{});
-        dummy.close();
+        var dummy = net.tcpConnectToAddress(self.stream.listen_address) catch null;
+        if (dummy) |*sock| {
+            debug("Closing dummy", .{});
+            sock.close();
+        }
         debug("Waiting...", .{});
         self.has_died.wait();
         debug("Wait complete", .{});
