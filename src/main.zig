@@ -3,7 +3,7 @@ const std = @import("std");
 const Server = @import("server.zig").Server;
 
 const ip = "localhost";
-const port = 8019;
+const port = 8018;
 
 var server: ?*Server = null;
 

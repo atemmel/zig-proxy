@@ -28,7 +28,9 @@ pub const Server = struct {
     }
 
     pub fn deinit(self: *Server) void {
-        defer self.stream.deinit();
+        if (self.has_died.isSet()) {
+            return;
+        }
         debug("Quit reading", .{});
         self.should_die.store(true, .SeqCst);
         debug("Sending dummy client", .{});
@@ -40,10 +42,16 @@ pub const Server = struct {
         debug("Waiting...", .{});
         self.has_died.wait();
         debug("Wait complete", .{});
+        self.stream.deinit();
     }
 
     pub fn listen(self: *Server) !void {
-        self.has_died.reset();
+        var thread = try Thread.spawn(.{}, listenImpl, .{self});
+        thread.join();
+    }
+
+    fn listenImpl(self: *Server) !void {
+        //defer self.has_died.set();
         var nice_buffer: [2048]u8 = undefined;
         debug("Listening on address...", .{});
         try self.stream.listen(self.address);
