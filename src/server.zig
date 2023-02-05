@@ -29,7 +29,7 @@ pub const Server = struct {
     pub fn deinit(self: *Server) void {
         defer self.stream.deinit();
         debug("Quit reading", .{});
-        self.should_die.store(true, .Release);
+        self.should_die.store(true, .SeqCst);
         debug("Sending dummy client", .{});
         var dummy = net.tcpConnectToAddress(self.stream.listen_address) catch null;
         if (dummy) |*sock| {
@@ -42,12 +42,14 @@ pub const Server = struct {
     }
 
     pub fn listen(self: *Server) !void {
+        self.has_died.reset();
         var nice_buffer: [2048]u8 = undefined;
         debug("Listening on address...", .{});
         try self.stream.listen(self.address);
-        while (!self.should_die.load(.Acquire)) {
-            debug("Accepting new connection...", .{});
+        while (!self.should_die.load(.SeqCst)) {
+            debug("Accepting new connections...", .{});
             var conn = try self.stream.accept();
+            debug("Connection accepted!", .{});
             defer conn.stream.close();
 
             debug("Reading from connection", .{});

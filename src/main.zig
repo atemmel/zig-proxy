@@ -3,7 +3,7 @@ const std = @import("std");
 const Server = @import("server.zig").Server;
 
 const ip = "localhost";
-const port = 8015;
+const port = 8019;
 
 var server: ?*Server = null;
 
@@ -19,6 +19,7 @@ pub fn main() !void {
     }, null);
 
     var srv = try Server.init(ip, port, ally);
+    defer srv.deinit();
     server = &srv;
     try srv.listen();
     std.log.debug("Ending...", .{});

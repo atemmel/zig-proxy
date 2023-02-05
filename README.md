@@ -1,1 +1,1 @@
-# zig-reverse-proxy
+# zig-proxy
