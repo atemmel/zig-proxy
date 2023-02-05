@@ -5,15 +5,16 @@ const Thread = std.Thread;
 const net = std.net;
 const os = std.os;
 const debug = std.log.debug;
+const Allocator = std.mem.Allocator;
 
 pub const Server = struct {
     stream: net.StreamServer,
     address: net.Address,
-    ally: std.mem.Allocator,
+    ally: Allocator,
     should_die: atomic.Atomic(bool) = atomic.Atomic(bool).init(false),
     has_died: Thread.ResetEvent = Thread.ResetEvent{},
 
-    pub fn init(addr: []const u8, port: u16, ally: std.mem.Allocator) !Server {
+    pub fn init(addr: []const u8, port: u16, ally: Allocator) !Server {
         const addresses = try net.getAddressList(ally, addr, port);
         defer addresses.deinit();
         const server = Server{
