@@ -19,7 +19,7 @@ pub const Server = struct {
         defer addresses.deinit();
         const server = Server{
             .stream = net.StreamServer.init(.{
-                //.reuse_address = true,
+                .reuse_address = true,
             }),
             .ally = ally,
             .address = addresses.addrs[0],
@@ -52,23 +52,73 @@ pub const Server = struct {
 
     fn listenImpl(self: *Server) !void {
         defer self.has_died.set();
-        var nice_buffer: [2048]u8 = undefined;
         debug("Listening on address...", .{});
         try self.stream.listen(self.address);
         while (!self.should_die.load(.SeqCst)) {
             debug("Accepting new connections...", .{});
-            var conn = try self.stream.accept();
-            debug("Connection accepted!", .{});
-            defer conn.stream.close();
+            var conn = self.stream.accept() catch {
+                debug("Unable to accept connection", .{});
+                continue;
+            };
 
-            debug("Reading from connection", .{});
-            const n = try conn.stream.read(&nice_buffer);
-            const bytes = nice_buffer[0..n];
-
-            debug("Recieved {} bytes: \n\n{s}\n", .{ n, bytes });
-
-            _ = try conn.stream.write("Test bytes");
+            var thread = Thread.spawn(.{}, transfer, .{ self, conn }) catch {
+                debug("Unable to transfer data to client", .{});
+                continue;
+            };
+            thread.detach();
         }
         debug("Shutting down...", .{});
     }
+
+    fn transfer(self: *Server, conn: net.StreamServer.Connection) !void {
+        defer conn.stream.close();
+        //const ip = "github.com";
+        //const port = 443;
+        const ip = "localhost";
+        const port = 8000;
+        var buffer: [2048]u8 = undefined;
+
+        var client = try net.tcpConnectToHost(self.ally, ip, port);
+        defer client.close();
+
+        {
+            debug("Reading from connection", .{});
+            const n = try conn.stream.read(&buffer);
+            const request = buffer[0..n];
+            debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
+            _ = try client.write(request);
+        }
+
+        {
+            const n = try client.read(&buffer);
+            const partial_response = buffer[0..n];
+            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
+            _ = try conn.stream.write(partial_response);
+        }
+
+        while (true) {
+            const n = try client.read(&buffer);
+            const partial_response = buffer[0..n];
+            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
+            _ = try conn.stream.write(partial_response);
+
+            if (n < buffer.len) {
+                break;
+            }
+        }
+
+        debug("Transfer complete", .{});
+    }
 };
+
+fn readHttpHeader(bytes: []const u8) void {
+    var it = std.mem.tokenize(u8, bytes, "\n\r");
+    var header: []const u8 = undefined;
+    if (it.next()) |slice| {
+        header = slice;
+    } else {
+        return;
+    }
+
+    it = std.mem.tokenize(u8, header, " ");
+}

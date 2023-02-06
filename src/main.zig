@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Server = @import("server.zig").Server;
+const debug = std.log.debug;
 
 const ip = "localhost";
 const port = 8018;
@@ -22,13 +23,13 @@ pub fn main() !void {
     defer srv.deinit();
     server = &srv;
     try srv.listen();
-    std.log.debug("Ending...", .{});
+    debug("Ending...", .{});
 }
 
 fn handleSigInt(_: c_int) callconv(.C) void {
-    std.log.debug("\nSigint moment", .{});
+    debug("\nSigint moment", .{});
     if (server) |srv| {
         srv.deinit();
     }
-    std.log.debug("Sigint complete", .{});
+    debug("Sigint complete", .{});
 }
