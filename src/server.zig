@@ -1,4 +1,5 @@
 const std = @import("std");
+const curl = @import("curl.zig");
 
 const atomic = std.atomic;
 const Thread = std.Thread;
@@ -74,38 +75,52 @@ pub const Server = struct {
         defer conn.stream.close();
         //const ip = "github.com";
         //const port = 443;
+        const target = "https://www.google.com";
         const ip = "localhost";
+        _ = ip;
         const port = 8000;
+        _ = port;
         var buffer: [2048]u8 = undefined;
 
-        var client = try net.tcpConnectToHost(self.ally, ip, port);
-        defer client.close();
+        const n = try conn.stream.read(&buffer);
+        const request = buffer[0..n];
+        debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
 
-        {
-            debug("Reading from connection", .{});
-            const n = try conn.stream.read(&buffer);
-            const request = buffer[0..n];
-            debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
-            _ = try client.write(request);
-        }
+        var req = curl.Request.to(self.ally, target);
+        if (req == null) return;
+        defer req.?.deinit();
 
-        {
-            const n = try client.read(&buffer);
-            const partial_response = buffer[0..n];
-            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
-            _ = try conn.stream.write(partial_response);
-        }
+        _ = try conn.stream.write(req.?.string.items);
 
-        while (true) {
-            const n = try client.read(&buffer);
-            const partial_response = buffer[0..n];
-            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
-            _ = try conn.stream.write(partial_response);
+        //var client = try net.tcpConnectToHost(self.ally, ip, port);
+        //defer client.close();
 
-            if (n < buffer.len) {
-                break;
-            }
-        }
+        //        {
+        //            debug("Reading from connection", .{});
+        //            const n = try conn.stream.read(&buffer);
+        //            const request = buffer[0..n];
+        //            debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
+        //            _ = try client.write(request);
+        //        }
+        //
+        //        if(false) {
+        //        {
+        //            const n = try client.read(&buffer);
+        //            const partial_response = buffer[0..n];
+        //            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
+        //            _ = try conn.stream.write(partial_response);
+        //        }
+        //
+        //        while (true) {
+        //            const n = try client.read(&buffer);
+        //            const partial_response = buffer[0..n];
+        //            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
+        //            _ = try conn.stream.write(partial_response);
+        //
+        //            if (n < buffer.len) {
+        //                break;
+        //            }
+        //        }
 
         debug("Transfer complete", .{});
     }

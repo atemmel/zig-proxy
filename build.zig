@@ -12,8 +12,10 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const exe = b.addExecutable("zig-reverse-proxy", "src/main.zig");
+    exe.linkLibC();
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.linkSystemLibrary("curl");
     exe.install();
 
     const run_cmd = exe.run();
