@@ -80,6 +80,11 @@ pub const Server = struct {
         const n = try conn.stream.read(&buffer);
         const request_slice = buffer[0..n];
 
+        // if early exit connection
+        if (request_slice.len == 0) {
+            return;
+        }
+
         const request = http.parse(request_slice) orelse {
             debug("Unable to parse request...", .{});
             return;
