@@ -1,5 +1,6 @@
 const std = @import("std");
 const curl = @import("curl.zig");
+const http = @import("http.zig");
 
 const atomic = std.atomic;
 const Thread = std.Thread;
@@ -73,67 +74,26 @@ pub const Server = struct {
 
     fn transfer(self: *Server, conn: net.StreamServer.Connection) !void {
         defer conn.stream.close();
-        //const ip = "github.com";
-        //const port = 443;
-        const target = "https://www.google.com";
-        const ip = "localhost";
-        _ = ip;
-        const port = 8000;
-        _ = port;
-        var buffer: [2048]u8 = undefined;
+        var url_buffer: [512]u8 = undefined;
+        var buffer: [4096]u8 = undefined;
 
         const n = try conn.stream.read(&buffer);
-        const request = buffer[0..n];
-        debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
+        const request_slice = buffer[0..n];
 
-        var req = curl.Request.to(self.ally, target);
-        if (req == null) return;
-        defer req.?.deinit();
+        const request = http.parse(request_slice) orelse {
+            debug("Unable to parse request...", .{});
+            return;
+        };
 
-        _ = try conn.stream.write(req.?.string.items);
+        const url = try std.fmt.bufPrintZ(&url_buffer, "https://www.google.com{s}", .{request.path});
 
-        //var client = try net.tcpConnectToHost(self.ally, ip, port);
-        //defer client.close();
+        var req = curl.Request.to(self.ally, url) orelse {
+            debug("Unable to perform request...", .{});
+            return;
+        };
+        defer req.deinit();
 
-        //        {
-        //            debug("Reading from connection", .{});
-        //            const n = try conn.stream.read(&buffer);
-        //            const request = buffer[0..n];
-        //            debug("Forwarding {} bytes: \n\n'{s}'\n", .{ n, request });
-        //            _ = try client.write(request);
-        //        }
-        //
-        //        if(false) {
-        //        {
-        //            const n = try client.read(&buffer);
-        //            const partial_response = buffer[0..n];
-        //            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
-        //            _ = try conn.stream.write(partial_response);
-        //        }
-        //
-        //        while (true) {
-        //            const n = try client.read(&buffer);
-        //            const partial_response = buffer[0..n];
-        //            debug("Recieved {} bytes: \n\n'{s}'\n", .{ n, partial_response });
-        //            _ = try conn.stream.write(partial_response);
-        //
-        //            if (n < buffer.len) {
-        //                break;
-        //            }
-        //        }
-
+        _ = try conn.stream.write(req.string.items);
         debug("Transfer complete", .{});
     }
 };
-
-fn readHttpHeader(bytes: []const u8) void {
-    var it = std.mem.tokenize(u8, bytes, "\n\r");
-    var header: []const u8 = undefined;
-    if (it.next()) |slice| {
-        header = slice;
-    } else {
-        return;
-    }
-
-    it = std.mem.tokenize(u8, header, " ");
-}

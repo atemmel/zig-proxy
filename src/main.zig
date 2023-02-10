@@ -33,3 +33,7 @@ fn handleSigInt(_: c_int) callconv(.C) void {
     }
     debug("Sigint complete", .{});
 }
+
+comptime {
+    _ = @import("http.zig");
+}
